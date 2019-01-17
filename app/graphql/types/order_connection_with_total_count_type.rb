@@ -3,6 +3,8 @@ class Types::OrderEdgeType < GraphQL::Types::Relay::BaseEdge
 end
 
 class Types::OrderConnectionWithTotalCountType < GraphQL::Types::Relay::BaseConnection
+  implements Types::Pagination::PageableConnectionInterface
+
   edge_type(Types::OrderEdgeType)
 
   field :total_count, Integer, null: false
