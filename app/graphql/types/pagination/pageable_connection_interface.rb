@@ -3,7 +3,6 @@ module Types::Pagination::PageableConnectionInterface
   include Types::BaseInterface
   ######## WIP ######
   # Missing implementations/data: items per page, total pages, efficient method for getting the "around" pages
-  ITEMS_PER_PAGE = "??????????"
   PageCursor = Struct.new(:cursor, :isCurrent?, :page) # temporary, not even sure if this will work, probably should have some kind of service class that does this for us?
 
   ## Known things
@@ -16,6 +15,10 @@ module Types::Pagination::PageableConnectionInterface
   field :count_after, Int, 'number of objects after the last cursor in this page', null: false
 
 
+  # Since we are using PageCursors, the # per page is always the `first` argument passed into the query.
+  def items_per_page
+    object.first
+  end
 
   def nodes_before(node)
     object.nodes.take_while { |n| n.cursor != node.cursor }
@@ -34,11 +37,11 @@ module Types::Pagination::PageableConnectionInterface
   end
 
   field :page_cursors, Types::Pagination::PageCursorsType, 'Page cursors'
-  
+
   def page_cursors
     {
       first: page_cursor_from_node(object.edge_nodes.first),
-      last: page_cursor_from_node(object.edge_nodes[-ITEMS_PER_PAGE]),
+      last: page_cursor_from_node(object.edge_nodes[-items]),
       around: [] # "?????"
     }
   end
