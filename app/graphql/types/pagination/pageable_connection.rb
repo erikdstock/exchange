@@ -1,10 +1,13 @@
 class Types::Pagination::PageableConnection < GraphQL::Types::Relay::BaseConnection
-  field :page_cursors, Types::Pagination::PageCursorsType, null: false
+  field :page_cursors, Types::Pagination::PageCursorsType, null: true
   field :total_pages, Int, null: false
   field :total_count, Integer, null: false
   # we should be doing this earlier if we want to see hasPreviousPage
   GraphQL::Relay::ConnectionType.bidirectional_pagination = true
+
   def page_cursors
+    return if total_count.zero?
+
     {
       first: page_cursor(1),
       last: page_cursor(total_pages),
@@ -24,6 +27,16 @@ class Types::Pagination::PageableConnection < GraphQL::Types::Relay::BaseConnect
     object.nodes.size
   end
 
+  def page_cursor(page_num)
+    {
+      cursor: cursor_for_page(page_num),
+      is_current: current_page == page_num,
+      page: page_num
+    }
+  end
+
+  private
+
   # A cursor for querying a given page number (after: cursor_for_page(8), first: nodes_per_page)
   # TODO: Why can't we just re-implement GraphQL::Relay::RelationConnection#cursor_from_node (below)?
   #  calling it via `object.cursor_from_node` for a node not in the edge_nodes throws an error,
@@ -37,6 +50,23 @@ class Types::Pagination::PageableConnection < GraphQL::Types::Relay::BaseConnect
       ''
     end
   end
+
+  def current_page
+    nodes_before / nodes_per_page + 1
+  end
+
+  # TODO:  clarify this behavior
+  def around_page_numbers
+    pages = if current_page == 1
+      [1, 2, 3]
+    elsif current_page == total_pages
+      [total_pages - 2, total_pages - 1, total_pages]
+    else
+      [current_page - 1, current_page, current_page + 1]
+    end
+    pages.select { |p| p <= total_pages }.compact
+  end
+
   ## From GraphQL::Relay::RelationConnection (our `object`)
   # def cursor_from_node(item)
   #   item_index = nodes.index(item)
@@ -68,31 +98,6 @@ class Types::Pagination::PageableConnection < GraphQL::Types::Relay::BaseConnect
   def node_offset(node)
     # this was previously accomplished by calling a private method: object.send(:offset_from_cursor, object.cursor_from_node(object.edge_nodes.first))
     object.nodes.index(node) + 1
-  end
-
-
-  def page_cursor(page_num)
-    {
-      cursor: cursor_for_page(page_num),
-      is_current: current_page == page_num,
-      page: page_num
-    }
-  end
-
-  def current_page
-    nodes_before / nodes_per_page + 1
-  end
-
-  # TODO:  clarify this behavior
-  def around_page_numbers
-    pages = if current_page == 1
-              [1, 2, 3]
-            elsif current_page == total_pages
-              [total_pages - 2, total_pages - 1, total_pages]
-            else
-              [current_page - 1, current_page, current_page + 1]
-            end
-    pages.select { |p| p <= total_pages }.compact
   end
 
   def nodes_per_page
